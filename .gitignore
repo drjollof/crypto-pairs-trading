@@ -1,0 +1,9 @@
+venv/
+.venv/
+.env/
+*.c
+*.cpp
+*.so
+*.pyd
+*.pyc
+build/
