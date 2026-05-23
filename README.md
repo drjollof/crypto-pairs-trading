@@ -1,113 +1,358 @@
 # Paper Implementation: Pairs Trading in Cryptocurrency Market
 
-This repository implements a complete, end-to-end quantitative pipeline for market-neutral pairs trading in the cryptocurrency markets. It serves as a programmatic implementation of the mathematical methodologies outlined in the academic paper **[Pairs trading in cryptocurrency market: A long-short story](https://businessperspectives.org/index.php/journals/investment-management-and-financial-innovations/issue-387/pairs-trading-in-cryptocurrency-market-a-long-short-story)** (*Investment Management and Financial Innovations, Business Perspectives*).
+This repository implements a statistical arbitrage pipeline for cryptocurrency pairs trading based on the paper *[“Pairs Trading in Cryptocurrency Market: A Long-Short Story”]((https://businessperspectives.org/index.php/journals/investment-management-and-financial-innovations/issue-387/pairs-trading-in-cryptocurrency-market-a-long-short-story))* published in *Investment Management and Financial Innovations*.
 
-By utilizing statistical cointegration, the algorithm identifies mean-reverting relationships between crypto assets and executes a systematic long-short strategy. The system is backtested across multiple six-month data panels to evaluate the strategy's capacity to isolate idiosyncratic spread movements and protect capital during broader market drawdowns.
+The project explores whether cointegration-based pairs trading can identify mean-reverting relationships between crypto assets and generate market-neutral trading opportunities.
 
+Rather than predicting the overall market direction, the strategy focuses on trading the relative price relationship between two statistically related assets.
 
+---
 
-## Data and Testing Panels
+# Project Objective
 
-The strategy is backtested against daily closing prices of four high-liquidity assets (BTC, ETH, LTC, NEO). To account for shifting market regimes and prevent data snooping, the timeline is segmented into four strictly isolated, six-month panels:
+The main goal of this project is to:
 
-* **Panel A:** January 1, 2018 – June 30, 2018 (High Volatility / Bear Market)
-* **Panel B:** July 1, 2018 – December 31, 2018 (Severe Drawdown)
-* **Panel C:** January 1, 2019 – June 30, 2019 (Bull Market Recovery)
-* **Panel D:** July 1, 2019 – December 31, 2019 (Stagnation / Contraction)
+- identify cointegrated cryptocurrency pairs,
+- construct stationary spreads,
+- simulate long-short mean-reversion trades,
+- and evaluate the behavior of the strategy across different market conditions.
 
+This project is intended as a research and educational implementation of the paper's methodology rather than a live trading system.
 
-*(Note: The raw Augmented Dickey-Fuller (ADF) test statistics and cointegration matrices for all pairs across these panels are available in the `notebooks/` directory).*
+---
 
-## Mathematical Framework
+# Data and Testing Panels
 
-The core engine relies on a two-step statistical process to identify and trade stationary spreads.
+The strategy uses daily closing prices of four cryptocurrencies:
 
-### 1. Ordinary Least Squares (OLS) Regression
-To prevent dollar-value skewing between assets with large price difference (e.g., Bitcoin and Litecoin), the system standardizes the relationship using an OLS regression. The higher-priced asset is assigned as the independent variable $x$, and the lower-priced asset as the dependent variable $y$.
+- BTC
+- ETH
+- LTC
+- NEO
 
-$$y_t = \beta x_t + \epsilon_t$$
+To reduce look-ahead bias and account for changing market conditions, the historical data is divided into separate six-month panels.
 
-The resulting $\beta$ coefficient acts as the optimal hedge ratio. The daily spread (the residuals, $\epsilon_t$) is then calculated as:
+| Panel | Period |
+|---|---|
+| **Panel A** | January 1, 2018 – June 30, 2018 |
+| **Panel B** | July 1, 2018 – December 31, 2018 |
+| **Panel C** | January 1, 2019 – June 30, 2019 |
+| **Panel D** | July 1, 2019 – December 31, 2019 |
 
-$$Spread_t = y_t - (\beta \times x_t)$$
+For each simulation cycle:
 
-### 2. Augmented Dickey-Fuller (ADF) Test
-A spread is only tradable if it is statistically stationary (mean-reverting). The pipeline passes the historical residual spread of every asset combination through the ADF test. 
+- one six-month panel is used as the **formation period**,
+- and the following six-month panel is used as the **trading period**.
 
-Only pairs that return a p-value strictly less than $0.05$ are validated as cointegrated. Pairs that fail to reject the null hypothesis of a unit root are discarded, filtering out assets that are merely correlated or drifting apart.
+The formation period is used to:
 
-### 3. Execution Logic
-For cointegrated pairs, the algorithm calculates the standard deviation $\sigma$ of the spread. Trades are executed based on the following triggers:
-* **Short Spread:** Triggered when $Spread_t > +\sigma$. The algorithm expects the spread to compress back to the mean.
+- estimate hedge ratios,
+- construct spreads,
+- and test for cointegration.
 
-* **Long Spread:** Triggered when $Spread_t < -\sigma$. The algorithm expects the spread to expand back to the mean.
+Those parameters are then frozen and applied to the unseen trading period for out-of-sample evaluation.
 
-* **Mean Reversion:** All active positions are closed to capture profit when $Spread_t$ crosses $0$.
+---
 
-## System Architecture
+# Mathematical Framework
 
-The codebase is strictly modular, separating data generation, mathematical evaluation, and trading simulation.
+The strategy relies on two main statistical methods:
 
-* `data_processing.py`: Ingests raw historical price data for BTC, ETH, LTC, and NEO. It segments the continuous time-series into isolated six-month panels to ensure the mathematical models react to recent market regimes rather than outdated, multi-year relationships.
+- Ordinary Least Squares (OLS) regression
+- Augmented Dickey-Fuller (ADF) stationarity testing
 
-* `statistical_tests.py`: It computes the combinations of assets per panel, applies the OLS and ADF functions, and outputs a nested dictionary containing only the validated pairs, their specific beta ratios, and their standard deviation thresholds.
+---
 
-* `strategy_simulator.py`: It goes through the daily price of a panel. It calculates the real-time spread, monitors for execution triggers, tracks floating unrealized equity, and computes the final strategy performance against a static equal-weight baseline portfolio.
+## 1. OLS Regression
 
+To normalize the relationship between two assets with different price scales, the system estimates a hedge ratio using OLS regression.
 
-## Simulation Results & Visualization
+The higher-priced asset is treated as the independent variable $x$, while the lower-priced asset becomes the dependent variable $y$:
 
-The core advantage of this market-neutral architecture is capital preservation. During severe market contractions (e.g., Panels B and D), the strategy successfully isolates asset spreads and generates positive absolute returns while the passive baseline portfolio suffers significant drawdowns. 
+$$
+y_t = \beta x_t + \epsilon_t
+$$
 
-### Performance Summary (Representative Pairs)
+The estimated $\beta$ value acts as the hedge ratio between the two assets.
 
-| Panel Window | Cointegrated Pair | Beta Ratio | Trade Trigger | Strategy Profit (Units) | Baseline Net | Net Outperformance |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Panel B** (H2 2018) | BTC / LTC | 0.0121 | ± 8.04 | -2.91 | -$5,217.54 | **+$5,214.62** |
-| **Panel C** (H1 2019) | BTC / ETH | 0.0255 | ± 11.70 | 61.83 | $14,813.68 | **-$14,751.84** |
-| **Panel C** (H1 2019) | ETH / LTC | 0.5138 | ± 11.84 | 44.52 | $20,097.13 | **-$20,052.61** |
-| **Panel C** (H1 2019) | LTC / NEO | 0.0733 | ± 1.12 | -2.27 | $20,372.08 | **-$20,374.35** |
-| **Panel D** (H2 2019) | BTC / ETH | 0.0224 | ± 21.28 | 78.12 | -$4,425.35 | **+$4,503.47** |
-| **Panel D** (H2 2019) | BTC / LTC | 0.0128 | ± 9.72 | -37.96 | -$4,937.44 | **+$4,899.48** |
-| **Panel D** (H2 2019) | BTC / NEO | 0.0010 | ± 1.87 | 10.65 | -$4,055.01 | **+$4,065.66** |
+The spread is then calculated as:
 
-*(Note: The strategy is designed to sacrifice explosive bull-market growth, as seen in Panel C, in exchange for strict correlation stripping and downside protection).*
+$$
+\text{Spread}_t = y_t - (\beta \times x_t)
+$$
 
+This spread represents the relative mispricing between the two assets after partially removing overall market direction.
 
-### Visualization
+---
 
-The pipeline automatically generates dual-axis performance charts using `matplotlib` to validate the algorithmic edge. 
+## 2. ADF Stationarity Test
 
-*(Note: The chart below is a representative example from Panel D. Executing the pipeline will generate the performance charts for all cointegrated pairs across all panels).*
+A spread is only tradable if it is statistically stationary (mean-reverting).
 
-![Cumulative Equity and Spread History](plot\Figure_5.png)
+To test this, the residual spread for every asset pair is passed through the Augmented Dickey-Fuller (ADF) test.
 
-**Chart Analysis:**
-* **Spread History (Top):** Displays the neutralized spread over time. The shaded regions visually map the exact days the spread broke the standard deviation thresholds, triggering a simulated trade.
+Only pairs with $p < 0.05$ are considered cointegrated and eligible for trading. Pairs that fail the stationarity test are discarded.
 
-* **Cumulative Return Comparison (Bottom):** Plots the raw unit profit of the strategy (Primary Y-Axis) against the dollar value of a $10,000 passive baseline portfolio (Secondary Y-Axis). 
+---
 
-The results demonstrate the primary advantage of market-neutral architecture: during severe market conditions (such as the crypto winter of late 2019), the strategy successfully isolates the asset spreads and generates positive returns while the passive baseline portfolio suffers significant drawdowns.
+# Trading Logic
 
-## Local Installation and Execution
+For each validated pair, the standard deviation of the spread from the formation period is used as the trading threshold during the trading window.
 
-This project utilizes `uv` for fast, reproducible dependency management.
+## Entry Rules
 
-1. Clone the repository:
+### Short Spread Position
+
+Triggered when:
+
+$$
+\text{Spread}_t > +\sigma
+$$
+
+The strategy:
+
+- shorts the relatively overpriced asset,
+- and longs the relatively underpriced asset.
+
+---
+
+### Long Spread Position
+
+Triggered when:
+
+$$
+\text{Spread}_t < -\sigma
+$$
+
+The strategy:
+
+- longs the relatively underpriced asset,
+- and shorts the relatively overpriced asset.
+
+---
+
+## Exit Rule
+
+All positions are closed once the spread crosses back toward its historical mean:
+
+$$
+\text{Spread}_t = 0
+$$
+
+The strategy assumes that temporary deviations from equilibrium may revert over time.
+
+---
+
+# System Architecture
+
+The codebase is modular and follows a forward-walk backtesting structure.
+
+## `main.py`
+
+Controls the overall backtesting workflow:
+
+- loads formation and trading panels,
+- computes statistical parameters,
+- runs simulations,
+- and generates final outputs.
+
+---
+
+## `data_processing.py`
+
+Responsible for:
+
+- downloading historical price data using `ccxt`,
+- cleaning the dataset,
+- and splitting the data into six-month panels.
+
+---
+
+## `statistical_tests.py`
+
+Handles:
+
+- asset pair generation,
+- OLS regression,
+- spread construction,
+- ADF testing,
+- and validation of cointegrated pairs.
+
+The module outputs:
+
+- hedge ratios,
+- spread thresholds,
+- and validated trading pairs.
+
+---
+
+## `strategy_simulator.py`
+
+Simulates the out-of-sample trading process by:
+
+- calculating spreads during the trading window,
+- generating trade signals,
+- tracking cumulative spread profit,
+- and comparing performance against a passive benchmark portfolio.
+
+---
+
+# Simulation Results
+
+The results show that the market-neutral strategy was generally less affected by major crypto market declines compared to a passive buy-and-hold portfolio.
+
+During strong bullish periods, the passive benchmark often outperformed the strategy, while bearish market periods showed stronger relative stability from the statistical arbitrage approach.
+
+## Out-of-Sample Performance Summary
+
+| Trading Panel | Cointegrated Pair | Beta Ratio | Trade Trigger | Strategy Profit (Units) | Baseline PnL |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Panel C** | BTC / LTC | 0.0121 | ± 8.04 | 59.43 | $23,868.39 |
+| **Panel D** | BTC / ETH | 0.0255 | ± 11.70 | 18.60 | -$4,425.35 |
+| **Panel D** | ETH / LTC | 0.5138 | ± 11.84 | 3.37 | -$6,134.82 |
+| **Panel D** | LTC / NEO | 0.0733 | ± 1.12 | 2.28 | -$5,764.48 |
+
+---
+
+# Interpretation of Strategy Profit
+
+The **Strategy Profit (Units)** metric represents the cumulative spread captured during the simulation rather than a directly dollar-denominated return.
+
+Because the spread is defined as:
+
+$$
+\text{Spread}_t = y_t - (\beta \times x_t)
+$$
+
+one unit of spread exposure corresponds to:
+
+- holding 1 unit of asset $y$,
+- while shorting $\beta$ units of asset $x$.
+
+For example, if the spread moves from:
+
+$$
+-5 \rightarrow 0$$
+
+the strategy captures approximately $5$ spread units from that mean-reversion move.
+
+The cumulative strategy profit therefore measures how much spread convergence the algorithm captured during the trading period.
+
+The metric is intentionally kept in spread units instead of dollars so the statistical behavior of the strategy can be evaluated independently from:
+
+- capital allocation,
+- leverage,
+- compounding,
+- position sizing,
+- or reinvestment assumptions.
+
+In contrast, the **Baseline PnL** metric tracks the dollar performance of a hypothetical \$10,000 equal-weight buy-and-hold portfolio over the same period.
+
+---
+
+# Visualization
+
+The pipeline automatically generates charts showing:
+
+- spread behavior,
+- trading thresholds,
+- and cumulative strategy performance.
+
+![Panel D BTC/ETH Spread and Equity](plot/Figure_2.png)
+
+## Chart Interpretation
+
+### Spread Analysis (Top)
+
+Displays the residual spread constructed using the hedge ratio estimated during the formation period.
+
+The shaded area represents the historical spread threshold region derived from the formation period. Movements outside these boundaries indicate periods where the spread deviated significantly from its historical equilibrium and could generate trading signals.
+
+---
+
+### Strategy Vs Baseline Performance (Bottom)
+
+Compares:
+
+- cumulative strategy spread profit,
+- against the dollar performance of a passive \$10,000 benchmark portfolio.
+
+The results suggest that the statistical arbitrage strategy was less sensitive to the broader market decline during the trading window compared to the passive benchmark portfolio.
+
+---
+
+# Assumptions and Limitations
+
+This project simplifies several aspects of real-world trading.
+
+The backtest does **not** include:
+
+- transaction costs,
+- slippage,
+- funding rates,
+- exchange latency,
+- leverage constraints,
+- or portfolio-level risk management.
+
+Additional limitations include:
+
+- static hedge ratios during trading windows,
+- daily closing prices only,
+- and the assumption that cointegration relationships remain stable during the trading period.
+
+As a result, the results should be interpreted as a research-oriented evaluation of the strategy rather than evidence of live trading profitability.
+
+---
+
+# Future Improvements
+
+Possible future extensions include:
+
+- rolling hedge ratio estimation,
+- adaptive z-score normalization,
+- transaction cost modeling,
+- larger crypto asset universe,
+- dynamic spread estimation,
+- and portfolio-level capital allocation.
+
+---
+
+# Local Installation and Execution
+
+This project uses `uv` for dependency management.
+
+## 1. Clone the Repository
+
 ```bash
-git clone [https://github.com/drjollof/crypto-pairs-trading.git](https://github.com/drjollof/crypto-pairs-trading.git)
+git clone https://github.com/drjollof/crypto-pairs-trading.git
 cd crypto-pairs-trading
 ```
 
-2. Initialize the environment and install dependencies:
+## 2. Install Dependencies
+
 ```bash
 uv init
-uv add pandas statsmodels matplotlib
+uv add pandas statsmodels matplotlib ccxt
 ```
 
-3. Execute the pipeline:
+## 3. Run the Pipeline
+
 ```bash
 uv run main.py
 ```
 
-Upon execution, the terminal will log the ADF p-values for all combinations, render the historical spread and equity charts for all cointegrated pairs, and print a final consolidated performance table to the console.
+The pipeline will:
+
+- run the statistical tests,
+- identify cointegrated pairs,
+- execute the backtest,
+- generate charts,
+- and print the final performance summary.
+
+---
+
+# Disclaimer
+
+This repository is intended for educational and research purposes only.
+
+It does not constitute financial advice or investment recommendation.
