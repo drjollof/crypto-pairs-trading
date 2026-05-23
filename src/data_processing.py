@@ -11,12 +11,35 @@ DATA_PATH = 'data/'
 
 
 def load_full_csv() -> pd.DataFrame:
+
+    """
+    Loads the master historical close price dataset from local storage.
+    
+    Returns:
+        pd.DataFrame: A continuous time series dataframe containing the daily 
+        closing prices for specified cryptocurrency symbols.
+    """
+
     df = pd.read_csv(DATA_PATH + 'close_price_data.csv', index_col= 0)
 
     return df
 
 
+
 def fetch_raw_data(start_date, end_date, symbols, timeframe):
+
+    """
+    Fetches historical OHLCV data from the Binance API using the ccxt library.
+    
+    Extracts the daily closing prices for the specified symbols across a continuous 
+    date range and saves the results to a local CSV.
+    
+    Args:
+        start_date (str): The ISO 8601 formatted start date.
+        end_date (str): The ISO 8601 formatted end date.
+        symbols (list): A list of cryptocurrency ticker strings (e.g., ['BTC/USDT']).
+        timeframe (str): The bar interval for the data request.
+    """
 
     try: 
 
@@ -33,6 +56,7 @@ def fetch_raw_data(start_date, end_date, symbols, timeframe):
         df = pd.DataFrame(close_dict)
         df.index = pd.to_datetime(df.index, unit='ms')
         df.index.name = 'date'
+        os.makedirs(DATA_PATH, exist_ok= True)
         df.to_csv(DATA_PATH + 'close_price_data.csv', index=True)
         print(f'{len(df)} close price data successfully fetched for all coins..')
 
@@ -44,6 +68,14 @@ def fetch_raw_data(start_date, end_date, symbols, timeframe):
 
 
 def split_into_panels(df: pd.DataFrame):
+
+    """
+    Splits continuous time series dataframe into isolated six-month blocks.
+    
+    Args:
+        df (pd.DataFrame): The dataframe containing all historical close prices.
+    """
+
     date_ranges = {
         'panel_a': ('2018-01-01', '2018-06-30'),
         'panel_b': ('2018-07-01', '2018-12-31'),
@@ -61,6 +93,17 @@ def split_into_panels(df: pd.DataFrame):
 
 
 def read_panel_data() -> dict:
+
+    """
+    Reads the six-month panel CSV files from the local directory.
+    
+    Returns:
+        dict: A dictionary where the keys are the panel names (e.g., 'panel_a') 
+        and the values are the corresponding pandas DataFrames.
+    """
+
+
+
     panels = {}
     panel_names = ['panel_a', 'panel_b', 'panel_c', 'panel_d']
     
@@ -72,9 +115,22 @@ def read_panel_data() -> dict:
 
 
 
-def run_data_pipeline():
+def run_data_pipeline() -> dict:
+
+    """
+    runs the entire data ingestion and processing workflow.
+    
+    Checks for the existence of local data files. If absent, it triggers the API 
+    fetch, splits the main file into isolated six-month panels, and loads them 
+    into memory for the backtester.
+    
+    Returns:
+        dict: A dictionary of panel dataframes ready for statistical analysis.
+    """
+
+
     raw_csv_path = DATA_PATH + 'close_price_data.csv'
-    panel_a_path = DATA_PATH + 'rupanel_a.csv' 
+    panel_a_path = DATA_PATH + 'panel_a.csv' 
 
     if not os.path.exists(raw_csv_path):
         print("Fetching data from API...")
