@@ -6,7 +6,7 @@ The project explores whether cointegration-based pairs trading can identify mean
 
 Rather than predicting the overall market direction, the strategy focuses on trading the relative price relationship between two statistically related assets.
 
----
+
 
 # Project Objective
 
@@ -19,7 +19,7 @@ The main goal of this project is to:
 
 This project is intended as a research and educational implementation of the paper's methodology rather than a live trading system.
 
----
+
 
 # Data and Testing Panels
 
@@ -52,7 +52,7 @@ The formation period is used to:
 
 Those parameters are then frozen and applied to the unseen trading period for out-of-sample evaluation.
 
----
+
 
 # Mathematical Framework
 
@@ -61,7 +61,8 @@ The strategy relies on two main statistical methods:
 - Ordinary Least Squares (OLS) regression
 - Augmented Dickey-Fuller (ADF) stationarity testing
 
----
+
+
 
 ## 1. OLS Regression
 
@@ -83,7 +84,7 @@ $$
 
 This spread represents the relative mispricing between the two assets after partially removing overall market direction.
 
----
+
 
 ## 2. ADF Stationarity Test
 
@@ -93,7 +94,7 @@ To test this, the residual spread for every asset pair is passed through the Aug
 
 Only pairs with $p < 0.05$ are considered cointegrated and eligible for trading. Pairs that fail the stationarity test are discarded.
 
----
+
 
 # Trading Logic
 
@@ -109,12 +110,12 @@ $$
 \text{Spread}_t > +\sigma
 $$
 
-The strategy:
+strategy:
 
 - shorts the relatively overpriced asset,
 - and longs the relatively underpriced asset.
 
----
+
 
 ### Long Spread Position
 
@@ -124,12 +125,12 @@ $$
 \text{Spread}_t < -\sigma
 $$
 
-The strategy:
+strategy:
 
 - longs the relatively underpriced asset,
 - and shorts the relatively overpriced asset.
 
----
+
 
 ## Exit Rule
 
@@ -141,7 +142,7 @@ $$
 
 The strategy assumes that temporary deviations from equilibrium may revert over time.
 
----
+
 
 # System Architecture
 
@@ -156,7 +157,7 @@ Controls the overall backtesting workflow:
 - runs simulations,
 - and generates final outputs.
 
----
+
 
 ## `data_processing.py`
 
@@ -166,7 +167,7 @@ Responsible for:
 - cleaning the dataset,
 - and splitting the data into six-month panels.
 
----
+
 
 ## `statistical_tests.py`
 
@@ -184,7 +185,7 @@ The module outputs:
 - spread thresholds,
 - and validated trading pairs.
 
----
+
 
 ## `strategy_simulator.py`
 
@@ -195,7 +196,7 @@ Simulates the out-of-sample trading process by:
 - tracking cumulative spread profit,
 - and comparing performance against a passive benchmark portfolio.
 
----
+
 
 # Simulation Results
 
@@ -212,11 +213,11 @@ During strong bullish periods, the passive benchmark often outperformed the stra
 | **Panel D** | ETH / LTC | 0.5138 | ± 11.84 | 3.37 | -$6,134.82 |
 | **Panel D** | LTC / NEO | 0.0733 | ± 1.12 | 2.28 | -$5,764.48 |
 
----
+
 
 # Interpretation of Strategy Profit
 
-The **Strategy Profit (Units)** metric represents the cumulative spread captured during the simulation rather than a directly dollar-denominated return.
+**Strategy Profit (Units)** metric represents the cumulative spread captured during the simulation rather than a directly dollar-denominated return.
 
 Because the spread is defined as:
 
@@ -248,7 +249,7 @@ The metric is intentionally kept in spread units instead of dollars so the stati
 
 In contrast, the **Baseline PnL** metric tracks the dollar performance of a hypothetical \$10,000 equal-weight buy-and-hold portfolio over the same period.
 
----
+
 
 # Visualization
 
@@ -268,7 +269,7 @@ Displays the residual spread constructed using the hedge ratio estimated during 
 
 The shaded area represents the historical spread threshold region derived from the formation period. Movements outside these boundaries indicate periods where the spread deviated significantly from its historical equilibrium and could generate trading signals.
 
----
+
 
 ### Strategy Vs Baseline Performance (Bottom)
 
@@ -279,7 +280,7 @@ Compares:
 
 The results suggest that the statistical arbitrage strategy was less sensitive to the broader market decline during the trading window compared to the passive benchmark portfolio.
 
----
+
 
 # Assumptions and Limitations
 
@@ -302,7 +303,7 @@ Additional limitations include:
 
 As a result, the results should be interpreted as a research-oriented evaluation of the strategy rather than evidence of live trading profitability.
 
----
+
 
 # Future Improvements
 
@@ -315,7 +316,7 @@ Possible future extensions include:
 - dynamic spread estimation,
 - and portfolio-level capital allocation.
 
----
+
 
 # Local Installation and Execution
 
@@ -349,7 +350,7 @@ The pipeline will:
 - generate charts,
 - and print the final performance summary.
 
----
+
 
 # Disclaimer
 
